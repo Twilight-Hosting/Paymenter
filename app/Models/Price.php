@@ -13,6 +13,9 @@ class Price extends Model implements Auditable
 
     public $timestamps = false;
 
+    protected $primaryKey = 'id';
+    protected $keyType = 'int';
+
     protected $guarded = [];
 
     public function priceable(): MorphTo

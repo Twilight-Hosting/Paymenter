@@ -46,16 +46,38 @@ class Plan extends Model implements Auditable
      */
     public function price()
     {
+        // 1. Logic for free plans
         if ($this->type === 'free') {
-            return new PriceClass(['currency' => Currency::find(session('currency', config('settings.default_currency')))], free: true);
+            $currency = Currency::where('code', session('currency', config('settings.default_currency')))->first();
+            return new PriceClass(['currency' => $currency], free: true);
         }
-        $currency = session('currency', config('settings.default_currency'));
-        $price = $this->prices->where('currency_code', $currency)->first();
 
+        // 2. Determine Currency
+        $currencyCode = session('currency', config('settings.default_currency'));
+
+        // 3. Find the Price Model
+        // Eager load currency to avoid extra queries and ensure format is available
+        $priceModel = $this->prices()
+            ->with('currency') // Make sure we have the currency relation loaded!
+            ->where('currency_code', $currencyCode)
+            ->first();
+
+        // Fallback if specific currency not found
+        if (!$priceModel) {
+            $priceModel = $this->prices()->with('currency')->first();
+        }
+
+        // 4. Return null if no price exists at all
+        if (!$priceModel) {
+            return null;
+        }
+
+        // 5. Construct PriceClass Correctly
+        // The class expects an object with 'price', 'setup_fee', and 'currency' (object)
         return new PriceClass((object) [
-            'price' => $price,
-            'setup_fee' => $price->setup_fee,
-            'currency' => $price->currency,
+            'price'     => $priceModel->price,      // The float value (e.g., 10.00)
+            'setup_fee' => $priceModel->setup_fee,  // The float value
+            'currency'  => $priceModel->currency,   // The Currency MODEL/Object
         ]);
     }
 
